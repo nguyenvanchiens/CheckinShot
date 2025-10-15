@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken Shooting Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 80%, #8B7355 80%, #8B7355 100%);
+            border: 5px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #scoreBoard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+        }
+
+        #gameOver h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #ff4444;
+        }
+
+        #gameOver p {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        #restartBtn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #restartBtn:hover {
+            background: #45a049;
+        }
+
+        .score {
+            color: #ff6600;
+        }
+
+        .lives {
+            color: #ff0000;
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        #startScreen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #FFD700;
+        }
+
+        #startScreen p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        #startBtn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #startBtn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="canvas" width="800" height="600"></canvas>
+
+        <div id="scoreBoard">
+            <div>Score: <span class="score" id="score">0</span></div>
+            <div>Lives: <span class="lives" id="lives">3</span></div>
+            <div>Level: <span id="level">1</span></div>
+        </div>
+
+        <div id="startScreen">
+            <h1>🐔 Chicken Shooting 🐔</h1>
+            <p style="font-size: 16px; color: #FFD700; margin-bottom: 10px;">Controls:</p>
+            <p style="font-size: 14px;">◀️ ▶️ Arrow Keys or A/D to move gun</p>
+            <p style="font-size: 14px;">🖱️ MOUSE to aim, HOLD to auto-shoot</p>
+            <p style="margin-top: 10px;">Shoot the chickens before they escape!</p>
+            <p>Don't let them reach the ground!</p>
+            <p style="color: #ff6666; font-size: 14px;">⚠️ Watch out! Eggs hit your tank = lose lives!</p>
+            <p style="color: #FFD700; font-size: 16px; font-weight: bold;">⚠️ BOSS appears every level! ⚠️</p>
+            <p style="margin-top: 15px; font-size: 16px; color: #FFD700;">Collect Power-ups:</p>
+            <p style="font-size: 14px;">⭐ Red Star = 2X Damage</p>
+            <p style="font-size: 14px;">⚡ Blue Lightning = Rapid Fire</p>
+            <p style="font-size: 14px;">🎯 Green Hexagon = Triple Shot</p>
+            <button id="startBtn">Start Game</button>
+        </div>
+
+        <div id="gameOver">
+            <h1>Game Over!</h1>
+            <p>Final Score: <span class="score" id="finalScore">0</span></p>
+            <p>Level Reached: <span id="finalLevel">1</span></p>
+            <button id="restartBtn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        let chickens = [];
+        let bullets = [];
+        let particles = [];
+        let powerUps = [];
+        let eggs = [];
+        let boss = null;
+        let bossActive = false;
+        let chickenSpawnTimer = 0;
+        let chickenSpawnInterval = 80;
+        let powerUpSpawnTimer = 0;
+        let powerUpSpawnInterval = 300; // Spawn power-up every 5 seconds
+
+        // Power-up effects
+        let activePowerUps = {
+            doubleDamage: 0,
+            rapidFire: 0,
+            tripleShot: 0
+        };
+        let fireRateTimer = 0;
+        let fireRateDelay = 0;
+
+        // Player (gun at bottom)
+        const gun = {
+            x: canvas.width / 2,
+            y: canvas.height - 30,
+            width: 40,
+            height: 20,
+            angle: 0
+        };
+
+        // Mouse position
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+
+        // Keyboard controls
+        let keys = {
+            left: false,
+            right: false
+        };
+        const gunSpeed = 5;
+
+        // Mouse shooting control
+        let isMouseDown = false;
+
+        // Chicken class
+        class Chicken {
+            constructor() {
+                this.x = Math.random() * (canvas.width - 60) + 30;
+                this.y = -50;
+                this.width = 50;
+                this.height = 50;
+                this.speed = 1 + level * 0.3;
+                this.movePattern = Math.random();
+                this.offsetX = Math.sin(Math.random() * 100) * 2;
+                this.eggDropTimer = Math.floor(Math.random() * 120) + 60; // Drop egg every 1-3 seconds
+            }
+
+            update() {
+                this.y += this.speed;
+                this.x += Math.sin(this.y * 0.05 + this.movePattern * 10) * this.offsetX;
+
+                // Drop eggs randomly
+                this.eggDropTimer--;
+                if (this.eggDropTimer <= 0 && this.y > 0 && this.y < canvas.height - 100) {
+                    eggs.push(new Egg(this.x, this.y + 10));
+                    this.eggDropTimer = Math.floor(Math.random() * 120) + 60;
+                }
+            }
+
+            draw() {
+                // Draw chicken emoji style
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Body
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.width/2, this.height/2.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(-5, -15, 15, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Beak
+                ctx.fillStyle = '#FFA500';
+                ctx.beginPath();
+                ctx.moveTo(-15, -15);
+                ctx.lineTo(-25, -13);
+                ctx.lineTo(-15, -11);
+                ctx.closePath();
+                ctx.fill();
+
+                // Eye
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(-10, -17, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Comb
+                ctx.fillStyle = '#FF0000';
+                ctx.beginPath();
+                ctx.moveTo(-10, -25);
+                ctx.lineTo(-8, -30);
+                ctx.lineTo(-5, -27);
+                ctx.lineTo(-2, -31);
+                ctx.lineTo(2, -26);
+                ctx.lineTo(-5, -23);
+                ctx.closePath();
+                ctx.fill();
+
+                // Wings
+                ctx.fillStyle = '#f0f0f0';
+                ctx.beginPath();
+                ctx.ellipse(-15, 5, 10, 15, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(15, 5, 10, 15, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            isOffScreen() {
+                return this.y > canvas.height + 50;
+            }
+        }
+
+        // Bullet class
+        class Bullet {
+            constructor(x, y, targetX, targetY) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.atan2(targetY - y, targetX - x);
+                this.speedX = Math.cos(angle) * 10;
+                this.speedY = Math.sin(angle) * 10;
+                this.radius = 5;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+            }
+
+            draw() {
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#8b0000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            isOffScreen() {
+                return this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height;
+            }
+        }
+
+        // Boss Chicken class
+        class BossChicken {
+            constructor(levelNum) {
+                this.x = canvas.width / 2;
+                this.y = -100;
+                this.width = 120;
+                this.height = 120;
+                this.speed = 0.5;
+                this.health = 30 + (levelNum * 10); // Increases with level
+                this.maxHealth = this.health;
+                this.movePattern = 0;
+                this.direction = 1;
+                this.eggDropTimer = 30; // Drops eggs more frequently
+                this.level = levelNum;
+            }
+
+            update() {
+                // Boss movement pattern - side to side
+                this.movePattern += 0.02;
+                this.x += Math.sin(this.movePattern) * 3;
+
+                // Move down slowly
+                if (this.y < 100) {
+                    this.y += this.speed;
+                }
+
+                // Keep boss in bounds
+                if (this.x < 60) this.x = 60;
+                if (this.x > canvas.width - 60) this.x = canvas.width - 60;
+
+                // Drop eggs more frequently
+                this.eggDropTimer--;
+                if (this.eggDropTimer <= 0) {
+                    // Drop multiple eggs
+                    eggs.push(new Egg(this.x - 20, this.y + 20));
+                    eggs.push(new Egg(this.x + 20, this.y + 20));
+                    if (this.level >= 3) {
+                        eggs.push(new Egg(this.x, this.y + 20));
+                    }
+                    this.eggDropTimer = 40;
+                }
+            }
+
+            draw() {
+                // Draw GIANT chicken
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Scale up
+                const scale = 2.4;
+
+                // Body (bigger)
+                ctx.fillStyle = '#FFD700'; // Golden color for boss
+                ctx.strokeStyle = '#FF4500';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, (this.width/2) * 0.8, (this.height/2.5) * 0.8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Head (bigger)
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(-10 * scale/2, -30 * scale/2, 25 * scale/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Beak (bigger)
+                ctx.fillStyle = '#FF8C00';
+                ctx.beginPath();
+                ctx.moveTo(-30 * scale/2, -30 * scale/2);
+                ctx.lineTo(-45 * scale/2, -26 * scale/2);
+                ctx.lineTo(-30 * scale/2, -22 * scale/2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#FF4500';
+                ctx.stroke();
+
+                // Eyes (bigger, angry)
+                ctx.fillStyle = '#FF0000'; // Red angry eyes
+                ctx.beginPath();
+                ctx.arc(-20 * scale/2, -34 * scale/2, 5 * scale/2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Pupil
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(-20 * scale/2, -34 * scale/2, 3 * scale/2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Crown (boss crown)
+                ctx.fillStyle = '#FFD700';
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-20 * scale/2, -50 * scale/2);
+                ctx.lineTo(-15 * scale/2, -60 * scale/2);
+                ctx.lineTo(-10 * scale/2, -52 * scale/2);
+                ctx.lineTo(-5 * scale/2, -62 * scale/2);
+                ctx.lineTo(0, -50 * scale/2);
+                ctx.lineTo(5 * scale/2, -60 * scale/2);
+                ctx.lineTo(10 * scale/2, -52 * scale/2);
+                ctx.lineTo(-10 * scale/2, -46 * scale/2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Large Comb
+                ctx.fillStyle = '#FF0000';
+                ctx.beginPath();
+                ctx.moveTo(-20 * scale/2, -50 * scale/2);
+                ctx.lineTo(-16 * scale/2, -60 * scale/2);
+                ctx.lineTo(-10 * scale/2, -54 * scale/2);
+                ctx.lineTo(-4 * scale/2, -62 * scale/2);
+                ctx.lineTo(4 * scale/2, -52 * scale/2);
+                ctx.lineTo(-10 * scale/2, -46 * scale/2);
+                ctx.closePath();
+                ctx.fill();
+
+                // Wings (bigger)
+                ctx.fillStyle = '#FFA500';
+                ctx.beginPath();
+                ctx.ellipse(-30 * scale/2, 10 * scale/2, 15 * scale/2, 25 * scale/2, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.ellipse(30 * scale/2, 10 * scale/2, 15 * scale/2, 25 * scale/2, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+
+                // Draw health bar
+                this.drawHealthBar();
+            }
+
+            drawHealthBar() {
+                const barWidth = 100;
+                const barHeight = 10;
+                const barX = this.x - barWidth / 2;
+                const barY = this.y - 80;
+
+                // Background
+                ctx.fillStyle = '#333';
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                // Health
+                const healthPercent = this.health / this.maxHealth;
+                const healthColor = healthPercent > 0.5 ? '#00FF00' : healthPercent > 0.25 ? '#FFFF00' : '#FF0000';
+                ctx.fillStyle = healthColor;
+                ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+
+                // Border
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                // Boss label
+                ctx.fillStyle = '#FF0000';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('BOSS', this.x, barY - 5);
+            }
+
+            takeDamage(damage) {
+                this.health -= damage;
+                if (this.health <= 0) {
+                    return true; // Boss is defeated
+                }
+                return false;
+            }
+
+            isOffScreen() {
+                return false; // Boss doesn't leave screen
+            }
+        }
+
+        // Egg class
+        class Egg {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 20;
+                this.height = 25;
+                this.speed = 4;
+                this.rotation = 0;
+            }
+
+            update() {
+                this.y += this.speed;
+                this.rotation += 0.1;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Draw egg
+                ctx.fillStyle = '#FFF8DC';
+                ctx.strokeStyle = '#D2B48C';
+                ctx.lineWidth = 2;
+
+                // Egg shape
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Add spots
+                ctx.fillStyle = '#D2B48C';
+                ctx.beginPath();
+                ctx.arc(-3, -3, 2, 0, Math.PI * 2);
+                ctx.arc(4, 2, 2, 0, Math.PI * 2);
+                ctx.arc(-2, 5, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            isOffScreen() {
+                return this.y > canvas.height + 30;
+            }
+        }
+
+        // Particle class for explosions
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.speedX = (Math.random() - 0.5) * 8;
+                this.speedY = (Math.random() - 0.5) * 8;
+                this.radius = Math.random() * 4 + 2;
+                this.life = 30;
+                this.color = ['#FFD700', '#FFA500', '#FF6347', '#fff'][Math.floor(Math.random() * 4)];
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.speedY += 0.2;
+                this.life--;
+                this.radius *= 0.95;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life / 30;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
+        // PowerUp class
+        class PowerUp {
+            constructor() {
+                this.x = Math.random() * (canvas.width - 60) + 30;
+                this.y = -50;
+                this.width = 40;
+                this.height = 40;
+                this.speed = 2;
+
+                // Random power-up type
+                const types = ['doubleDamage', 'rapidFire', 'tripleShot'];
+                this.type = types[Math.floor(Math.random() * types.length)];
+
+                // Visual properties
+                this.rotation = 0;
+                this.pulseScale = 1;
+            }
+
+            update() {
+                this.y += this.speed;
+                this.rotation += 0.05;
+                this.pulseScale = 1 + Math.sin(Date.now() * 0.005) * 0.15;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.scale(this.pulseScale, this.pulseScale);
+
+                // Draw based on type
+                if (this.type === 'doubleDamage') {
+                    // Red star for double damage
+                    ctx.fillStyle = '#FF0000';
+                    ctx.strokeStyle = '#8B0000';
+                    this.drawStar(0, 0, 5, 20, 10);
+
+                    // Draw "2X" text
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('2X', 0, 0);
+                } else if (this.type === 'rapidFire') {
+                    // Blue circle for rapid fire
+                    ctx.fillStyle = '#0080FF';
+                    ctx.strokeStyle = '#003380';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw lightning symbol
+                    ctx.fillStyle = '#FFFF00';
+                    ctx.beginPath();
+                    ctx.moveTo(-5, -12);
+                    ctx.lineTo(5, -2);
+                    ctx.lineTo(-2, -2);
+                    ctx.lineTo(8, 12);
+                    ctx.lineTo(-5, 2);
+                    ctx.lineTo(2, 2);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (this.type === 'tripleShot') {
+                    // Green hexagon for triple shot
+                    ctx.fillStyle = '#00FF00';
+                    ctx.strokeStyle = '#008000';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 3) * i;
+                        const x = Math.cos(angle) * 20;
+                        const y = Math.sin(angle) * 20;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw "3" text
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('3', 0, 0);
+                }
+
+                ctx.restore();
+            }
+
+            drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+                let rot = Math.PI / 2 * 3;
+                let x = cx;
+                let y = cy;
+                const step = Math.PI / spikes;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - outerRadius);
+                for (let i = 0; i < spikes; i++) {
+                    x = cx + Math.cos(rot) * outerRadius;
+                    y = cy + Math.sin(rot) * outerRadius;
+                    ctx.lineTo(x, y);
+                    rot += step;
+
+                    x = cx + Math.cos(rot) * innerRadius;
+                    y = cy + Math.sin(rot) * innerRadius;
+                    ctx.lineTo(x, y);
+                    rot += step;
+                }
+                ctx.lineTo(cx, cy - outerRadius);
+                ctx.closePath();
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            isOffScreen() {
+                return this.y > canvas.height + 50;
+            }
+        }
+
+        // Create explosion
+        function createExplosion(x, y) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y));
+            }
+        }
+
+        // Draw gun (Tank)
+        function drawGun() {
+            ctx.save();
+            ctx.translate(gun.x, gun.y);
+
+            // Tank body (base)
+            ctx.fillStyle = '#4a6741';
+            ctx.fillRect(-30, -10, 60, 20);
+
+            // Tank tracks
+            ctx.fillStyle = '#2d3e2d';
+            ctx.fillRect(-32, -12, 64, 5);
+            ctx.fillRect(-32, 7, 64, 5);
+
+            // Track details
+            ctx.fillStyle = '#1a1a1a';
+            for (let i = -30; i < 30; i += 8) {
+                ctx.fillRect(i, -11, 4, 3);
+                ctx.fillRect(i, 8, 4, 3);
+            }
+
+            // Tank turret
+            ctx.fillStyle = '#556b4f';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 20, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tank cannon (rotates)
+            ctx.save();
+            ctx.rotate(gun.angle);
+
+            ctx.fillStyle = '#3d4e37';
+            ctx.fillRect(0, -4, 35, 8);
+
+            // Cannon tip
+            ctx.fillStyle = '#2d3e2d';
+            ctx.fillRect(30, -5, 8, 10);
+
+            ctx.restore();
+
+            // Turret hatch
+            ctx.fillStyle = '#3d4e37';
+            ctx.beginPath();
+            ctx.arc(0, -2, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw clouds
+        function drawClouds() {
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.beginPath();
+            ctx.arc(100, 50, 30, 0, Math.PI * 2);
+            ctx.arc(130, 50, 40, 0, Math.PI * 2);
+            ctx.arc(160, 50, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(600, 80, 35, 0, Math.PI * 2);
+            ctx.arc(640, 80, 45, 0, Math.PI * 2);
+            ctx.arc(680, 80, 35, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Check collision
+        function checkCollision(bullet, chicken) {
+            const dx = bullet.x - chicken.x;
+            const dy = bullet.y - chicken.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < bullet.radius + chicken.width / 2;
+        }
+
+        // Update game
+        function update() {
+            if (!gameRunning) return;
+
+            // Update gun position based on keyboard input
+            if (keys.left) {
+                gun.x -= gunSpeed;
+            }
+            if (keys.right) {
+                gun.x += gunSpeed;
+            }
+
+            // Keep gun within canvas bounds
+            if (gun.x < 30) gun.x = 30;
+            if (gun.x > canvas.width - 30) gun.x = canvas.width - 30;
+
+            // Update gun angle
+            gun.angle = Math.atan2(mouseY - gun.y, mouseX - gun.x);
+
+            // Update fire rate timer
+            if (fireRateTimer > 0) fireRateTimer--;
+
+            // Automatic firing when mouse is held down
+            if (isMouseDown && gameRunning) {
+                let canFire = true;
+                if (activePowerUps.rapidFire > 0) {
+                    fireRateDelay = 5; // Very fast fire rate
+                } else {
+                    fireRateDelay = 15; // Normal fire rate
+                }
+
+                if (fireRateTimer > 0) {
+                    canFire = false;
+                }
+
+                if (canFire) {
+                    fireRateTimer = fireRateDelay;
+
+                    // Check triple shot
+                    if (activePowerUps.tripleShot > 0) {
+                        // Fire 3 bullets in a spread pattern
+                        const angle = Math.atan2(mouseY - gun.y, mouseX - gun.x);
+                        const spreadAngle = 0.2; // 11.5 degrees
+
+                        // Center bullet
+                        bullets.push(new Bullet(gun.x, gun.y, mouseX, mouseY));
+
+                        // Left bullet
+                        const leftAngle = angle - spreadAngle;
+                        const leftTargetX = gun.x + Math.cos(leftAngle) * 500;
+                        const leftTargetY = gun.y + Math.sin(leftAngle) * 500;
+                        bullets.push(new Bullet(gun.x, gun.y, leftTargetX, leftTargetY));
+
+                        // Right bullet
+                        const rightAngle = angle + spreadAngle;
+                        const rightTargetX = gun.x + Math.cos(rightAngle) * 500;
+                        const rightTargetY = gun.y + Math.sin(rightAngle) * 500;
+                        bullets.push(new Bullet(gun.x, gun.y, rightTargetX, rightTargetY));
+                    } else {
+                        // Normal single shot
+                        bullets.push(new Bullet(gun.x, gun.y, mouseX, mouseY));
+                    }
+                }
+            }
+
+            // Update active power-ups duration
+            for (let key in activePowerUps) {
+                if (activePowerUps[key] > 0) {
+                    activePowerUps[key]--;
+                }
+            }
+
+            // Spawn chickens (only if boss is not active)
+            if (!bossActive) {
+                chickenSpawnTimer++;
+                if (chickenSpawnTimer > chickenSpawnInterval) {
+                    chickens.push(new Chicken());
+                    chickenSpawnTimer = 0;
+                }
+            }
+
+            // Update boss
+            if (boss && bossActive) {
+                boss.update();
+            }
+
+            // Spawn power-ups
+            powerUpSpawnTimer++;
+            if (powerUpSpawnTimer > powerUpSpawnInterval) {
+                powerUps.push(new PowerUp());
+                powerUpSpawnTimer = 0;
+            }
+
+            // Update chickens
+            for (let i = chickens.length - 1; i >= 0; i--) {
+                chickens[i].update();
+
+                if (chickens[i].isOffScreen()) {
+                    chickens.splice(i, 1);
+                    lives--;
+                    document.getElementById('lives').textContent = lives;
+
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                }
+            }
+
+            // Update power-ups
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                powerUps[i].update();
+
+                if (powerUps[i].isOffScreen()) {
+                    powerUps.splice(i, 1);
+                    continue;
+                }
+
+                // Check collision with bullets (collect power-up)
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const dx = bullets[j].x - powerUps[i].x;
+                    const dy = bullets[j].y - powerUps[i].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 25) {
+                        // Activate power-up
+                        const type = powerUps[i].type;
+                        activePowerUps[type] = 6000; // 100 seconds at 60 FPS
+
+                        // Visual feedback
+                        createExplosion(powerUps[i].x, powerUps[i].y);
+
+                        powerUps.splice(i, 1);
+                        bullets.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].update();
+
+                if (bullets[i].isOffScreen()) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Check collision with boss
+                if (boss && bossActive) {
+                    const dx = bullets[i].x - boss.x;
+                    const dy = bullets[i].y - boss.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bullets[i].radius + boss.width / 2) {
+                        createExplosion(bullets[i].x, bullets[i].y);
+                        bullets.splice(i, 1);
+
+                        // Damage boss
+                        let damage = 1;
+                        if (activePowerUps.doubleDamage > 0) {
+                            damage = 2;
+                        }
+
+                        const defeated = boss.takeDamage(damage);
+                        if (defeated) {
+                            // Boss defeated!
+                            createExplosion(boss.x, boss.y);
+                            createExplosion(boss.x - 30, boss.y - 20);
+                            createExplosion(boss.x + 30, boss.y + 20);
+
+                            score += 50; // Big bonus for defeating boss
+                            document.getElementById('score').textContent = score;
+
+                            boss = null;
+                            bossActive = false;
+                        }
+                        continue;
+                    }
+                }
+
+                // Check collision with chickens
+                for (let j = chickens.length - 1; j >= 0; j--) {
+                    if (checkCollision(bullets[i], chickens[j])) {
+                        createExplosion(chickens[j].x, chickens[j].y);
+                        chickens.splice(j, 1);
+                        bullets.splice(i, 1);
+
+                        // Calculate score with double damage
+                        let points = 10;
+                        if (activePowerUps.doubleDamage > 0) {
+                            points *= 2;
+                        }
+
+                        score += points;
+                        document.getElementById('score').textContent = score;
+
+                        // Level up and spawn boss
+                        if (score % 100 === 0 && score > 0) {
+                            level++;
+                            document.getElementById('level').textContent = level;
+                            chickenSpawnInterval = Math.max(30, 80 - level * 5);
+
+                            // Spawn boss
+                            if (!bossActive) {
+                                boss = new BossChicken(level);
+                                bossActive = true;
+                                chickens = []; // Clear all normal chickens
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Update eggs
+            for (let i = eggs.length - 1; i >= 0; i--) {
+                eggs[i].update();
+
+                // Check if egg hits tank (lose life)
+                const dx = eggs[i].x - gun.x;
+                const dy = eggs[i].y - gun.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < eggs[i].width / 2 + 30) { // 30 is tank collision radius
+                    createExplosion(eggs[i].x, eggs[i].y);
+                    eggs.splice(i, 1);
+                    lives--;
+                    document.getElementById('lives').textContent = lives;
+
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                    continue;
+                }
+
+                // Remove eggs that go off screen
+                if (eggs[i].isOffScreen()) {
+                    eggs.splice(i, 1);
+                    continue;
+                }
+
+                // Check if egg is shot by bullet
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const bulletDx = bullets[j].x - eggs[i].x;
+                    const bulletDy = bullets[j].y - eggs[i].y;
+                    const bulletDistance = Math.sqrt(bulletDx * bulletDx + bulletDy * bulletDy);
+
+                    if (bulletDistance < bullets[j].radius + eggs[i].width / 2) {
+                        createExplosion(eggs[i].x, eggs[i].y);
+                        eggs.splice(i, 1);
+                        bullets.splice(j, 1);
+                        score += 5; // Bonus points for shooting eggs
+                        document.getElementById('score').textContent = score;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Draw game
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background
+            drawClouds();
+
+            // Draw boss first (behind everything)
+            if (boss && bossActive) {
+                boss.draw();
+            }
+
+            // Draw chickens
+            chickens.forEach(chicken => chicken.draw());
+
+            // Draw eggs
+            eggs.forEach(egg => egg.draw());
+
+            // Draw power-ups
+            powerUps.forEach(powerUp => powerUp.draw());
+
+            // Draw bullets
+            bullets.forEach(bullet => bullet.draw());
+
+            // Draw particles
+            particles.forEach(particle => particle.draw());
+
+            // Draw gun
+            drawGun();
+
+            // Draw active power-ups indicator
+            drawPowerUpIndicators();
+        }
+
+        // Draw power-up indicators
+        function drawPowerUpIndicators() {
+            let offsetY = 10;
+
+            if (activePowerUps.doubleDamage > 0) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.fillRect(canvas.width - 150, offsetY, 140, 30);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('2X Damage: ' + Math.ceil(activePowerUps.doubleDamage / 60) + 's', canvas.width - 145, offsetY + 20);
+                offsetY += 35;
+            }
+
+            if (activePowerUps.rapidFire > 0) {
+                ctx.fillStyle = 'rgba(0, 128, 255, 0.8)';
+                ctx.fillRect(canvas.width - 150, offsetY, 140, 30);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('Rapid Fire: ' + Math.ceil(activePowerUps.rapidFire / 60) + 's', canvas.width - 145, offsetY + 20);
+                offsetY += 35;
+            }
+
+            if (activePowerUps.tripleShot > 0) {
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.fillRect(canvas.width - 150, offsetY, 140, 30);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('Triple Shot: ' + Math.ceil(activePowerUps.tripleShot / 60) + 's', canvas.width - 145, offsetY + 20);
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start game
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            lives = 3;
+            level = 1;
+            chickens = [];
+            bullets = [];
+            particles = [];
+            powerUps = [];
+            eggs = [];
+            boss = null;
+            bossActive = false;
+            chickenSpawnTimer = 0;
+            chickenSpawnInterval = 80;
+            powerUpSpawnTimer = 0;
+            fireRateTimer = 0;
+            fireRateDelay = 0;
+            isMouseDown = false;
+
+            // Reset power-ups
+            activePowerUps = {
+                doubleDamage: 0,
+                rapidFire: 0,
+                tripleShot: 0
+            };
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('level').textContent = level;
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        // End game
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalLevel').textContent = level;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Event listeners
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', () => {
+            if (gameRunning) {
+                isMouseDown = true;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isMouseDown = false;
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            startGame();
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            startGame();
+        });
+
+        // Keyboard event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = true;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = false;
+            }
+        });
+
+        // Start game loop
+        gameLoop();
+    </script>
+</body>
+</html>
